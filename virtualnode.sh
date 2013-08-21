@@ -7,6 +7,10 @@ function ensure_dir () {
     fi
 }
 
+fail () {
+  echo "$@" >&2
+  exit 1
+}
 
 function vnode_new () {
 
@@ -22,12 +26,12 @@ function vnode_new () {
     ensure_dir "$lib"
     ensure_dir "$mod"
 
-    if [ -f /usr/bin/nodejs ]; then
-        cp /usr/bin/nodejs "$bin"
-    fi
-    if [ -f /usr/bin/node ]; then
-        cp /usr/bin/node "$bin"
-    fi
+    #if [ -f /usr/bin/nodejs ]; then
+    #    cp /usr/bin/nodejs "$bin"
+    #fi
+    #if [ -f /usr/bin/node ]; then
+    cp /usr/bin/node "$bin"
+    #fi
 
     cp -r /usr/lib/node_modules/npm/ "$mod"
     ln -s "$mod/npm/bin/npm-cli.js" "$bin/npm"
@@ -43,7 +47,6 @@ function export_vars () {
         exit 1
     fi
 
-    export VNODE_ROOT="$HOME/.vnode"
     export VIRTUAL_NODE="$1"
 
     local prefix="$VNODE_ROOT/$VIRTUAL_NODE"
@@ -66,11 +69,45 @@ function vnode_workon () {
 
     export PATH="$bin:$PATH"
     exec "$SHELL"
+}
 
+
+
+
+function vnode_ls () {
+    #local result=""
+
+    while read name; do
+            #result+="$name: $($VNODE_ROOT/$name/bin/node -v 2>/dev/null)|"
+            echo "$name: $($VNODE_ROOT/$name/bin/node -v 2>/dev/null)"
+        done < <( ls -- "$VNODE_ROOT" | sort )
+    #echo "$result" | column -t -s "|"
+}
+
+function vnode_rm () {
+    if [ -z "$1" ]
+      then
+        echo "No virtual env name supplied"
+        exit 1
+    fi
+
+    local folder="$VNODE_ROOT/$1"
+
+    if ! [ -d "$folder" ]; then
+        fail "virtual env '$1' doesn't exist"
+    fi
+
+    rm -rf "$folder" && echo "$1 successfully deleted"
 
 }
 
 function main() {
+    if ! [ -d "$VNODE_ROOT" ]; then
+        export VNODE_ROOT="$HOME/.vnode"
+        ensure_dir "$VNODE_ROOT"
+    fi
+
+
     local cmd="$1"
     shift
     case $cmd in
