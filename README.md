@@ -36,7 +36,7 @@ Fish
 
 Add to your ~/.zshrc this lines:
 
-```
+```sh
 set SHELL /usr/bin/fish
 function vn
     bash /path/to/virtualnode.sh $argv
@@ -79,7 +79,7 @@ To be done, contributions are welcome
 Fish
 ----
 
-```fish
+```sh
 functions -c fish_prompt fish_prompt_original
 
 function fish_prompt
@@ -105,6 +105,6 @@ To be done, contributions are welcome
 
 Fish
 ----
-```
+```sh
 . /path/to/vn_complete.fish
 ```
