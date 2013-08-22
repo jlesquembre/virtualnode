@@ -12,38 +12,138 @@ fail () {
   exit 1
 }
 
+fetch () {
+  local version=$(ver "$1")
+  if nave_has "$version"; then
+    echo "already fetched $version" >&2
+    return 0
+  fi
+
+  local src="$NAVE_SRC/$version"
+  remove_dir "$src"
+  ensure_dir "$src"
+
+  local url
+  local urls=(
+    "http://nodejs.org/dist/v$version/node-v$version.tar.gz"
+    "http://nodejs.org/dist/node-v$version.tar.gz"
+    "http://nodejs.org/dist/node-$version.tar.gz"
+  )
+  for url in "${urls[@]}"; do
+    curl -#Lf "$url" > "$src".tgz
+    if [ $? -eq 0 ]; then
+      $tar xzf "$src".tgz -C "$src" --strip-components=1
+      if [ $? -eq 0 ]; then
+        echo "fetched from $url" >&2
+        return 0
+      fi
+    fi
+  done
+
+  rm "$src".tgz
+  remove_dir "$src"
+  echo "Couldn't fetch $version" >&2
+  return 1
+}
+
+
+
+
+
+install_remote () {
+    local tar=${TAR-tar}
+
+    # Try to figure out the os and arch for binary fetching
+    local uname="$(uname -a)"
+    local arch=x86
+    case "$uname" in
+        Linux\ *) local os=linux ;;
+        Darwin\ *) local os=darwin ;;
+        SunOS\ *) local os=sunos ;;
+    esac
+    case "$uname" in
+        *x86_64*) arch=x64 ;;
+    esac
+    local version="$1"
+
+    if [ -z "$os" ]; then
+        fail "Could not determine your OS"
+    fi
+    # binaries started with node 0.8.6
+    case "$version" in
+      0.8.[012345]) fail "Version older than 0.8.6 not supported" ;;
+      0.[1234567]) fail "Version older than 0.8.6 not supported" ;;
+    esac
+
+    local t="$version-$os-$arch"
+    local url="http://nodejs.org/dist/v$version/node-v${t}.tar.gz"
+    local temp=$(mktemp)
+    local tgz="$temp/$t.tgz"
+    curl -#Lf "$url" > "$tgz"
+    if [ $? -ne 0 ]; then
+        # binary download failed.
+        rm -r "$temp"
+        fail "Download failed, trying source."
+    fi
+
+    # unpack straight into the build target.
+    $tar xzf "$tgz" -C "$VNODE_ROOT/$VIRTUAL_NODE" --strip-components 1
+    if [ $? -ne 0 ]; then
+        #nave_uninstall "$version"
+        fail "Unpack failed"
+    fi
+
+    # it worked!
+    rm -r "$temp"
+    echo "installed from binary" >&2
+    return 0
+
+}
+
+
 function vnode_new () {
 
+    while [ $# -gt 0 ] ; do
+        case "$1" in
+                -v) shift ; local version="$1" ; shift ;;
+                -*) fail "bad option '$1'" ;;
+                *)  if [ -n "$name" ]; then
+                        fail "Create multiple envs at once is not allowed!!"
+                    fi
+                    local name="$1" ; shift ;;
+         esac
+    done
 
-    export_vars "$@"
+    export_vars $name
 
     local prefix="$npm_config_prefix"
     local bin="$npm_config_binroot"
     local lib="$npm_config_root"
     local mod="$prefix/lib/node_modules"
 
-    ensure_dir "$bin"
-    ensure_dir "$lib"
-    ensure_dir "$mod"
+    if [ -n version ]; then
+        install_remote $version $name
+    else
+        ensure_dir "$bin"
+        ensure_dir "$lib"
+        ensure_dir "$mod"
 
-    #if [ -f /usr/bin/nodejs ]; then
-    #    cp /usr/bin/nodejs "$bin"
-    #fi
-    #if [ -f /usr/bin/node ]; then
-    cp /usr/bin/node "$bin"
-    #fi
+        cp /usr/bin/node "$bin"
 
-    cp -r /usr/lib/node_modules/npm/ "$mod"
-    ln -s "$mod/npm/bin/npm-cli.js" "$bin/npm"
+        cp -r /usr/lib/node_modules/npm/ "$mod"
+        ln -s "$mod/npm/bin/npm-cli.js" "$bin/npm"
+    fi
 
 
-    vnode_workon $@
+    vnode_workon $name
 }
+
 
 function export_vars () {
     if [ -z "$1" ]
       then
         echo "No virtual env name supplied"
+        echo "$@"
         exit 1
     fi
 
@@ -58,8 +158,6 @@ function export_vars () {
     export npm_config_root="$lib"
     export npm_config_prefix="$prefix"
     export NODE_PATH="$lib"
-
-
 }
 
 
@@ -72,17 +170,27 @@ function vnode_workon () {
 }
 
 
-
-
 function vnode_ls () {
-    #local result=""
 
-    while read name; do
-            #result+="$name: $($VNODE_ROOT/$name/bin/node -v 2>/dev/null)|"
+    if [ -n "$1" ]; then
+        if [ "$1" == '--no-version' ]; then
+            local show_version=false
+        else
+            local show_version=true
+        fi
+    else
+        local show_version=true
+    fi
+
+    for name in `ls -- "$VNODE_ROOT" | sort`; do
+        if $show_version; then
             echo "$name: $($VNODE_ROOT/$name/bin/node -v 2>/dev/null)"
-        done < <( ls -- "$VNODE_ROOT" | sort )
-    #echo "$result" | column -t -s "|"
+        else
+            echo "$name"
+        fi
+    done
 }
+
 
 function vnode_rm () {
     if [ -z "$1" ]
@@ -101,6 +209,7 @@ function vnode_rm () {
 
 }
 
+
 function main() {
     if ! [ -d "$VNODE_ROOT" ]; then
         export VNODE_ROOT="$HOME/.vnode"
@@ -111,7 +220,7 @@ function main() {
     local cmd="$1"
     shift
     case $cmd in
-        new | workon | rm | ls)
+        new | workon | rm | ls | help)
             cmd="vnode_$cmd"
             ;;
         * )
@@ -136,19 +245,10 @@ Usage: vn <cmd>
 
 Commands:
 
-install <version>    Install the version passed (ex: 0.1.103)
-use <version>        Enter a subshell where <version> is being used
-use <ver> <program>  Enter a subshell, and run "<program>", then exit
-use <name> <ver>     Create a named env, using the specified version.
-                     If the name already exists, but the version differs,
-                     then it will update the link.
-usemain <version>    Install in /usr/local/bin (ie, use as your main nodejs)
-clean <version>      Delete the source code for <version>
-uninstall <version>  Delete the install for <version>
-ls                   List versions currently installed
-ls-remote            List remote node versions
-ls-all               List remote and local node versions
-latest               Show the most recent dist version
+new <name>           Create a new environment using the system global version
+workon <name>        Enter a subshell where the environment <name> is being used
+rm <name>            Deletes virtual envirnoment for <version>
+ls                   List all environments
 help                 Output help information
 
 <version> can be the string "latest" to get the latest distribution.
