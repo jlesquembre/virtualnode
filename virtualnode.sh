@@ -48,7 +48,12 @@ fetch () {
 
 
 
-
+latest_version () {
+  curl -s http://nodejs.org/dist/ \
+    | egrep -o '[0-9]+\.[0-9]+\.[0-9]+' \
+    | sort -u -k 1,1n -k 2,2n -k 3,3n -t . \
+    | tail -n1
+}
 
 install_remote () {
     local tar=${TAR-tar}
@@ -73,23 +78,23 @@ install_remote () {
     case "$version" in
       0.8.[012345]) fail "Version older than 0.8.6 not supported" ;;
       0.[1234567]) fail "Version older than 0.8.6 not supported" ;;
+      latest) version=$(latest_version) ;;
     esac
 
     local t="$version-$os-$arch"
     local url="http://nodejs.org/dist/v$version/node-v${t}.tar.gz"
-    local temp=$(mktemp)
+    local temp=$(mktemp -d)
     local tgz="$temp/$t.tgz"
     curl -#Lf "$url" > "$tgz"
     if [ $? -ne 0 ]; then
         # binary download failed.
         rm -r "$temp"
-        fail "Download failed, trying source."
+        fail "Download failed, is version $version a valid version?."
     fi
 
     # unpack straight into the build target.
     $tar xzf "$tgz" -C "$VNODE_ROOT/$VIRTUAL_NODE" --strip-components 1
     if [ $? -ne 0 ]; then
-        #nave_uninstall "$version"
         fail "Unpack failed"
     fi
 
@@ -105,7 +110,7 @@ function vnode_new () {
 
     while [ $# -gt 0 ] ; do
         case "$1" in
-                -v) shift ; local version="$1" ; shift ;;
+                -v | --version) shift ; local version="$1" ; shift ;;
                 -*) fail "bad option '$1'" ;;
                 *)  if [ -n "$name" ]; then
                         fail "Create multiple envs at once is not allowed!!"
@@ -120,6 +125,8 @@ function vnode_new () {
     local bin="$npm_config_binroot"
     local lib="$npm_config_root"
     local mod="$prefix/lib/node_modules"
+
+    ensure_dir "$prefix"
 
     if [ -n version ]; then
         install_remote $version $name
@@ -163,9 +170,11 @@ function export_vars () {
 
 function vnode_workon () {
 
+
     export_vars "$@"
 
     export PATH="$bin:$PATH"
+    echo "Launching subshell in virtual environment. Type 'exit' or 'Ctrl+D' to return."
     exec "$SHELL"
 }
 
@@ -245,14 +254,14 @@ Usage: vn <cmd>
 
 Commands:
 
-new <name>           Create a new environment using the system global version
-workon <name>        Enter a subshell where the environment <name> is being used
-rm <name>            Deletes virtual envirnoment for <version>
-ls                   List all environments
-help                 Output help information
+new <name>              Create a new environment using the system global version
+new -v <version> <name> Create a new environment with the version passed
+workon <name>           Enter a subshell where the environment <name> is being used
+rm <name>               Deletes virtual envirnoment for <version>
+ls                      List all environments
+help                    Output help information
 
 <version> can be the string "latest" to get the latest distribution.
-<version> can be the string "stable" to get the latest stable version.
 
 EOF
 }
