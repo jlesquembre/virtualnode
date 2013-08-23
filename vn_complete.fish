@@ -45,7 +45,7 @@ complete -f -c $vn_name -n '__vn_using_command_options new -v' -a 'latest'
 
 #### workon
 complete -f -c $vn_name -n '__vn_needs_command' -a workon -d 'Actives an existing virtual environment'
-complete -f -c $vn_name -n '__vn_using_command workon' -a '(list_vn)' -d 'Node env'
+complete -f -c $vn_name -n '__vn_using_command workon' -a '(__vn_list_vn)' -d 'Node env'
 
 #### rm
 complete -f -c $vn_name -n '__vn_needs_command' -a rm -d 'Deletes a virtual environment'
