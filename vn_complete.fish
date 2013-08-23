@@ -49,7 +49,7 @@ complete -f -c $vn_name -n '__vn_using_command workon' -a '(__vn_list_vn)' -d 'N
 
 #### rm
 complete -f -c $vn_name -n '__vn_needs_command' -a rm -d 'Deletes a virtual environment'
-complete -f -c $vn_name -n '__vn_using_command rm' -a '(list_vn)' -d 'Node env'
+complete -f -c $vn_name -n '__vn_using_command rm' -a '(__vn_list_vn)' -d 'Node env'
 
 #### ls
 complete -f -c $vn_name -n '__vn_needs_command' -a ls -d 'List all existing virtual environments'
