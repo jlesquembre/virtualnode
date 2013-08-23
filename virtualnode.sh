@@ -126,9 +126,14 @@ function vnode_new () {
     local lib="$npm_config_root"
     local mod="$prefix/lib/node_modules"
 
-    ensure_dir "$prefix"
 
-    if [ -n version ]; then
+    if ! [ -d "$prefix" ]; then
+        ensure_dir "$prefix"
+    else
+        fail "'$VIRTUAL_NODE' already exists!!!"
+    fi
+
+    if [ -n "$version" ]; then
         install_remote $version $name
     else
         ensure_dir "$bin"
