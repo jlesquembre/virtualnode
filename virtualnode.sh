@@ -178,7 +178,7 @@ function vnode_workon () {
 
     export_vars "$@"
 
-    export PATH="$bin:$PATH"
+    export PATH="$npm_config_binroot:$PATH"
     echo "Launching subshell in virtual environment. Type 'exit' or 'Ctrl+D' to return."
     exec "$SHELL"
 }
