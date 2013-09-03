@@ -53,3 +53,8 @@ complete -f -c $vn_name -n '__vn_using_command rm' -a '(__vn_list_vn)' -d 'Node 
 
 #### ls
 complete -f -c $vn_name -n '__vn_needs_command' -a ls -d 'List all existing virtual environments'
+
+
+#### setproject
+complete -f -c $vn_name -n '__vn_needs_command' -a setproject -d 'Bind a virtualenv to a project'
+complete -f -c $vn_name -n '__vn_using_command setproject' -a '(__vn_list_vn)' -d 'Node env'

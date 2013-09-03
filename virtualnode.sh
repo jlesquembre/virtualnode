@@ -150,6 +150,40 @@ function vnode_new () {
     vnode_workon $name
 }
 
+# Given a virtualenv directory and a project directory,
+# set the virtualenv up to be associated with the
+# project
+function vnode_setproject {
+    typeset venv="$1"
+    typeset prj="$2"
+    if [ -z "$venv" ] ; then
+        venv="$VIRTUAL_NODE"
+        if [ -z "$VIRTUAL_NODE" ] ; then
+            fail "No virtual env provided!!!"
+        fi
+    fi
+
+    if [ -z "$prj" ]; then
+        prj="$(pwd)"
+    fi
+    echo "Setting project for $(basename $venv) to $prj"
+    echo "$prj" > "$VNODE_ROOT/$VIRTUAL_NODE/.project"
+}
+
+function get_project_dir {
+    if [ -f "$VNODE_ROOT/$VIRTUAL_NODE/.project" ]; then
+        typeset project_dir="$(cat "$VNODE_ROOT/$VIRTUAL_NODE/.project")"
+        if [ ! -z "$project_dir" ]; then
+            echo "$project_dir"
+        else
+            fail "Project directory $project_dir does not exist!!!"
+        fi
+    else
+        fail "No project set in $VIRTUAL_NODE"
+    fi
+    return 0
+}
+
 
 function export_vars () {
     if [ -z "$1" ]
@@ -182,8 +216,17 @@ function vnode_workon () {
     fi
 
     export PATH="$npm_config_binroot:$PATH"
+
+    # Use project folder if defined
+    prj_dir=$(get_project_dir 2>&1)
+    status=$?
+
     echo "Launching subshell in virtual environment. Type 'exit' or 'Ctrl+D' to return."
-    exec "$SHELL"
+    if [ $status -eq 0 ]; then
+        cd $prj_dir && exec "$SHELL"
+    else
+        exec "$SHELL"
+    fi
 }
 
 
@@ -237,7 +280,7 @@ function main() {
     local cmd="$1"
     shift
     case $cmd in
-        new | workon | rm | ls | help)
+        new | workon | rm | ls | setproject | help)
             cmd="vnode_$cmd"
             ;;
         * )
@@ -262,12 +305,15 @@ Usage: vn <cmd>
 
 Commands:
 
-new <name>              Create a new environment using the system global version
-new -v <version> <name> Create a new environment with the version passed
-workon <name>           Enter a subshell where the environment <name> is being used
-rm <name>               Deletes virtual envirnoment for <version>
-ls                      List all environments
-help                    Output help information
+new <name>               Create a new environment using the system global version
+new -v <version> <name>  Create a new environment with the version passed
+workon <name>            Enter a subshell where the environment <name> is being used
+rm <name>                Deletes virtual envirnoment for <version>
+ls                       List all environments
+setproject <venv> <path> Bind an existing virtualenv to an existing project.
+                         When no arguments are given, the current virtualenv and
+                         current directory are assumed.
+help                     Output help information
 
 <version> can be the string "latest" to get the latest distribution.
 
