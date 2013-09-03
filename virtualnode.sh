@@ -177,6 +177,9 @@ function vnode_workon () {
 
 
     export_vars "$@"
+    if [ ! -d "$npm_config_binroot" ]; then
+        fail "$VIRTUAL_NODE doesn't exit yet, create it before!"
+    fi
 
     export PATH="$npm_config_binroot:$PATH"
     echo "Launching subshell in virtual environment. Type 'exit' or 'Ctrl+D' to return."
